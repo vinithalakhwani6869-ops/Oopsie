@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream text-ink antialiased;
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(250, 116, 80, 0.1), transparent 32rem),
+      radial-gradient(circle at 88% 22%, rgba(16, 185, 129, 0.07), transparent 28rem);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-coral-200 text-ink;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(30, 27, 24, 0.25) transparent;
+  }
+
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid #ee552d;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-4xl border border-ink/10 bg-paper shadow-card;
+  }
+
+  .field {
+    @apply w-full rounded-2xl border border-ink/15 bg-white px-4 py-3 text-ink placeholder:text-ink-mute/60 transition focus:border-coral-400 focus:ring-4 focus:ring-coral-100 disabled:opacity-60;
+  }
+
+  .label {
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-[0.12em] text-ink-mute;
+  }
+
+  .dot-backdrop {
+    background-image: radial-gradient(rgba(30, 27, 24, 0.1) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .prose-oopsie {
+    @apply text-[0.95rem] leading-7 text-ink-soft;
+  }
+  .prose-oopsie > * + * {
+    @apply mt-3;
+  }
+  .prose-oopsie strong {
+    @apply font-semibold text-ink;
+  }
+  .prose-oopsie ol {
+    @apply ml-5 list-decimal space-y-1.5;
+  }
+  .prose-oopsie ul {
+    @apply ml-5 list-disc space-y-1.5;
+  }
+  .prose-oopsie code {
+    @apply rounded-md bg-ink/5 px-1.5 py-0.5 font-mono text-[0.85em] text-ink;
+  }
+  .prose-oopsie pre {
+    @apply overflow-x-auto rounded-2xl bg-ink p-4 text-cream;
+  }
+  .prose-oopsie pre code {
+    @apply bg-transparent p-0 text-cream;
+  }
+  .prose-oopsie h1,
+  .prose-oopsie h2,
+  .prose-oopsie h3 {
+    @apply font-display font-semibold text-ink;
+  }
+  .prose-oopsie blockquote {
+    @apply border-l-4 border-coral-300 pl-4 italic;
+  }
+}

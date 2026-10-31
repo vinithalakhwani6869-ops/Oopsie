@@ -1,0 +1,148 @@
+// A tiny offline bank so the demo still has content if the LLM is unavailable
+// during seeding. The seed script prefers generated questions.
+export const FALLBACK_QUESTIONS = [
+  {
+    slug: 'dsa',
+    difficulty: 'beginner',
+    type: 'mcq',
+    prompt: 'What is the average-case time complexity of looking up a value in a well-sized hash table?',
+    options: ['O(1)', 'O(log n)', 'O(n)', 'O(n log n)'],
+    answer_key: 'O(1)',
+    rubric: 'Must choose O(1) and recognise that hashing maps a key directly to a bucket.',
+    solution:
+      'A hash function turns the key into a bucket index, so the table jumps almost directly to the bucket instead of scanning the data. With a good hash function and a sensible load factor, the average lookup is constant time, O(1). The O(n) worst case only appears when many keys collide.',
+    concept_tag: 'Hash table lookup',
+  },
+  {
+    slug: 'sql',
+    difficulty: 'beginner',
+    type: 'mcq',
+    prompt: 'Which SQL clause filters individual rows before any grouping or aggregation happens?',
+    options: ['WHERE', 'HAVING', 'ORDER BY', 'LIMIT'],
+    answer_key: 'WHERE',
+    rubric: 'Must select WHERE and distinguish it from HAVING.',
+    solution:
+      'WHERE runs on individual rows before GROUP BY, so it decides which rows ever reach the aggregation. HAVING runs after grouping and filters groups using aggregate results. ORDER BY only sorts the final result, and LIMIT only truncates it.',
+    concept_tag: 'SQL filtering order',
+  },
+  {
+    slug: 'python',
+    difficulty: 'beginner',
+    type: 'short_text',
+    prompt: 'What does the expression `len([1, 2, 3])` evaluate to in Python?',
+    options: null,
+    answer_key: '3',
+    rubric: 'Must answer 3 (the number of elements in the list).',
+    solution:
+      '`len()` returns the number of items in a sequence. The list `[1, 2, 3]` contains three elements (1, 2 and 3), so the expression evaluates to 3. Python counts the number of elements, not the largest value.',
+    concept_tag: 'Python built-ins',
+  },
+  {
+    slug: 'aptitude',
+    difficulty: 'intermediate',
+    type: 'numeric',
+    prompt: 'A jacket is priced at $800. It is discounted by 25%. What is the sale price in dollars?',
+    options: null,
+    answer_key: '600',
+    rubric: 'Must compute 25% of 800 = 200 and subtract it, giving $600.',
+    solution:
+      'A 25% discount removes one quarter of the price: 0.25 × 800 = 200 dollars. The sale price is the original price minus the discount: 800 − 200 = 600 dollars. Equivalently, paying 75% of 800 gives 0.75 × 800 = 600.',
+    concept_tag: 'Percentage discounts',
+  },
+  {
+    slug: 'networking',
+    difficulty: 'intermediate',
+    type: 'mcq',
+    prompt: 'Which system translates human-readable domain names such as example.com into IP addresses?',
+    options: ['DNS', 'DHCP', 'FTP', 'TLS'],
+    answer_key: 'DNS',
+    rubric: 'Must choose DNS and describe name-to-address resolution.',
+    solution:
+      'DNS (Domain Name System) is the internet’s distributed directory: a resolver looks up the domain and returns the corresponding IP address. DHCP assigns local network addresses, FTP transfers files, and TLS encrypts connections — none of them resolve names.',
+    concept_tag: 'DNS resolution',
+  },
+  {
+    slug: 'general-science',
+    difficulty: 'beginner',
+    type: 'mcq',
+    prompt: 'In eukaryotic cells, which organelle is the main site of ATP production?',
+    options: ['Mitochondrion', 'Ribosome', 'Golgi apparatus', 'Lysosome'],
+    answer_key: 'Mitochondrion',
+    rubric: 'Must choose the mitochondrion and connect it to oxidative ATP production.',
+    solution:
+      'The mitochondrion hosts the electron transport chain and ATP synthase, which together produce most of the cell’s ATP during aerobic respiration. Ribosomes build proteins, the Golgi apparatus packages them, and lysosomes break down waste.',
+    concept_tag: 'Cell organelles',
+  },
+  {
+    slug: 'logical-reasoning',
+    difficulty: 'intermediate',
+    type: 'short_text',
+    prompt: 'All Bloops are Razzies. No Razzies are Green. Are any Bloops Green? Answer yes or no and give one sentence of reasoning.',
+    options: null,
+    answer_key: 'No',
+    rubric: 'Must answer no and explain that Bloops are a subset of Razzies, which are entirely disjoint from Green things.',
+    solution:
+      'Being a Bloop guarantees being a Razzie. Since no Razzie is Green, a Bloop cannot be Green either. The conclusion is "no": the two sets never overlap, even though "Bloop" and "Green" are never directly compared in the premises.',
+    concept_tag: 'Syllogistic deduction',
+  },
+  {
+    slug: 'english-grammar',
+    difficulty: 'beginner',
+    type: 'mcq',
+    prompt: 'Which sentence is grammatically correct?',
+    options: ["She doesn't like coffee.", "She don't like coffee.", "She doesn't likes coffee.", "She not like coffee."],
+    answer_key: "She doesn't like coffee.",
+    rubric: 'Must select the sentence with correct subject-verb agreement and auxiliary form.',
+    solution:
+      'In the present simple, third-person singular subjects take "does" as the auxiliary: "She does not (doesn’t) like coffee." After "doesn’t", the main verb stays in its base form, so "likes" would be wrong. "Don’t" belongs with I/you/we/they, and "she not like" is missing the auxiliary entirely.',
+    concept_tag: 'Subject-verb agreement',
+  },
+  {
+    slug: 'personal-finance',
+    difficulty: 'intermediate',
+    type: 'numeric',
+    prompt: '$1,000 is invested at 10% simple interest per year for 2 years. How much interest is earned, in dollars?',
+    options: null,
+    answer_key: '200',
+    rubric: 'Must apply simple interest I = P × r × t and answer $200.',
+    solution:
+      'Simple interest is calculated only on the original principal: I = P × r × t. Here P = 1,000, r = 0.10, and t = 2, so I = 1,000 × 0.10 × 2 = 200 dollars. Compound interest would earn slightly more because year two would also earn interest on year one’s interest.',
+    concept_tag: 'Simple vs compound interest',
+  },
+  {
+    slug: 'world-history',
+    difficulty: 'intermediate',
+    type: 'mcq',
+    prompt: 'The Industrial Revolution first took hold in which country?',
+    options: ['Great Britain', 'France', 'United States', 'Germany'],
+    answer_key: 'Great Britain',
+    rubric: 'Must choose Great Britain and can mention coal, capital, and mechanised textiles.',
+    solution:
+      'The Industrial Revolution began in Great Britain in the late 18th century. Coal, accessible ports, colonial trade, agricultural surplus, and a wave of textile inventions such as the spinning jenny created the conditions for factory production there before it spread to continental Europe and North America.',
+    concept_tag: 'Industrial Revolution origins',
+  },
+  {
+    slug: 'nutrition',
+    difficulty: 'beginner',
+    type: 'mcq',
+    prompt: 'Which macronutrient provides about 9 kilocalories per gram?',
+    options: ['Fat', 'Protein', 'Carbohydrate', 'Fibre'],
+    answer_key: 'Fat',
+    rubric: 'Must choose fat and distinguish its energy density from protein/carbohydrate.',
+    solution:
+      'Fat supplies roughly 9 kcal per gram, compared with about 4 kcal per gram for protein and carbohydrate. Fibre is a carbohydrate that is mostly indigestible, so it contributes less usable energy. Energy density is why small amounts of fat can add many calories.',
+    concept_tag: 'Macronutrient energy',
+  },
+  {
+    slug: 'astronomy',
+    difficulty: 'beginner',
+    type: 'numeric',
+    prompt: 'How many planets are in our solar system?',
+    options: null,
+    answer_key: '8',
+    rubric: 'Must answer 8.',
+    solution:
+      'The International Astronomical Union recognises eight planets: Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune. Pluto was reclassified as a dwarf planet in 2006 because it has not cleared its orbital neighbourhood.',
+    concept_tag: 'Solar system basics',
+  },
+];
