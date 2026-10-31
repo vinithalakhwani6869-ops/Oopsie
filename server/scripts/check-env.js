@@ -2,8 +2,9 @@
 /**
  * Oopsie environment check.
  *
- * Verifies that every required variable is set, pings Supabase (topics table +
- * leaderboard view), and sends one tiny prompt to the configured LLM.
+ * Verifies that every required variable is set, checks the client's Supabase
+ * config, pings Supabase (topics table + leaderboard view), confirms Google is
+ * enabled, and sends one tiny prompt to the configured LLM.
  *
  * Usage (from the repo root):   npm run check
  * Usage (from server/):         npm run check
@@ -21,6 +22,10 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const serverDir = path.resolve(scriptDir, '..');
 const envPath = path.join(serverDir, '.env');
 const envExists = fs.existsSync(envPath);
+
+const clientEnvPath = path.resolve(serverDir, '..', 'client', '.env');
+const clientEnvExists = fs.existsSync(clientEnvPath);
+const clientEnv = readEnvFile(clientEnvPath);
 
 dotenv.config({ path: envPath });
 
@@ -74,6 +79,42 @@ function displayUrl(value) {
   }
 }
 
+function readEnvFile(file) {
+  try {
+    return dotenv.parse(fs.readFileSync(file));
+  } catch {
+    return {};
+  }
+}
+
+// The dashboard URL (supabase.com/dashboard/project/<ref>) is a common
+// copy/paste mistake; it is not the API endpoint.
+function dashboardProjectRef(value) {
+  try {
+    const parsed = new URL(value);
+    if (parsed.hostname !== 'supabase.com' && parsed.hostname !== 'app.supabase.com') return null;
+    return parsed.pathname.match(/\/dashboard\/project\/([a-z0-9]+)/i)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function looksLikeAnonKey(value) {
+  return (
+    /^eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value) ||
+    /^sb_publishable_[A-Za-z0-9_-]+$/.test(value)
+  );
+}
+
+function jwtRole(token) {
+  try {
+    const payload = token.split('.')[1];
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function checkVariable(name, { url = false, secret = false, minLength = 1 } = {}) {
   const value = (process.env[name] ?? '').trim();
 
@@ -82,6 +123,12 @@ function checkVariable(name, { url = false, secret = false, minLength = 1 } = {}
   }
   if (looksLikePlaceholder(value)) {
     return report(name, false, 'still set to the example placeholder — replace it with your real value');
+  }
+  if (url) {
+    const ref = dashboardProjectRef(value);
+    if (ref) {
+      return report(name, false, `this is the Supabase dashboard URL - use https://${ref}.supabase.co instead`);
+    }
   }
   if (url && !isHttpUrl(value)) {
     return report(name, false, `not a valid http(s) URL: ${value}`);
@@ -272,19 +319,167 @@ async function pingLlm(url, key, model) {
   );
 }
 
+// The browser app signs in with these values. Google OAuth is built from them,
+// so a placeholder URL or key makes "Continue with Google" fail before Supabase
+// is ever reached.
+function checkClientEnv() {
+  console.log(`   env file: ${clientEnvPath}`);
+  console.log(`             ${clientEnvExists ? 'found' : 'NOT FOUND - copy client/.env.example to client/.env'}`);
+
+  const pick = (key) => {
+    if (process.env[key] !== undefined) return process.env[key].trim();
+    return (clientEnv[key] || '').trim();
+  };
+  const rawUrl = pick('VITE_SUPABASE_URL');
+  const rawKey = pick('VITE_SUPABASE_ANON_KEY');
+  const apiUrl = pick('VITE_API_URL');
+
+  let urlOk = false;
+  let keyOk = false;
+
+  if (!rawUrl) {
+    report('VITE_SUPABASE_URL', false, 'missing - copy client/.env.example to client/.env and fill it in');
+  } else if (dashboardProjectRef(rawUrl)) {
+    report(
+      'VITE_SUPABASE_URL',
+      false,
+      `this is the Supabase dashboard URL, not the API - use https://${dashboardProjectRef(rawUrl)}.supabase.co`,
+    );
+  } else if (looksLikePlaceholder(rawUrl)) {
+    report(
+      'VITE_SUPABASE_URL',
+      false,
+      'still set to the example placeholder - replace it with your real Project URL (Supabase -> Project Settings -> API)',
+    );
+  } else if (!isHttpUrl(rawUrl)) {
+    report('VITE_SUPABASE_URL', false, `not a valid http(s) URL: ${rawUrl}`);
+  } else {
+    urlOk = report('VITE_SUPABASE_URL', true, displayUrl(rawUrl));
+  }
+
+  if (!rawKey) {
+    report('VITE_SUPABASE_ANON_KEY', false, 'missing - copy client/.env.example to client/.env and fill it in');
+  } else if (looksLikePlaceholder(rawKey)) {
+    report(
+      'VITE_SUPABASE_ANON_KEY',
+      false,
+      'still set to the example placeholder - replace it with the anon/publishable key',
+    );
+  } else if (/^sb_secret_/i.test(rawKey)) {
+    report(
+      'VITE_SUPABASE_ANON_KEY',
+      false,
+      'this is a secret/service key - never put it in client/.env; use the anon or publishable key',
+    );
+  } else if (!looksLikeAnonKey(rawKey)) {
+    report(
+      'VITE_SUPABASE_ANON_KEY',
+      false,
+      'does not look like a Supabase anon key (expected "eyJ..." or "sb_publishable_...")',
+    );
+  } else {
+    const role = jwtRole(rawKey);
+    if (role && role !== 'anon') {
+      report(
+        'VITE_SUPABASE_ANON_KEY',
+        false,
+        `has role "${role}" - use the anon/publishable key, not the service_role key`,
+      );
+    } else {
+      keyOk = report('VITE_SUPABASE_ANON_KEY', true, `set (${rawKey.length} chars, hidden)`);
+    }
+  }
+
+  if (!apiUrl) {
+    report('VITE_API_URL', true, 'empty - the Vite dev proxy sends /api to http://localhost:8787');
+  } else if (!isHttpUrl(apiUrl)) {
+    report('VITE_API_URL', false, `not a valid http(s) URL: ${apiUrl}`);
+  } else {
+    report('VITE_API_URL', true, displayUrl(apiUrl));
+  }
+
+  // The client signs in with one project; the server verifies tokens with
+  // another if these differ, so every API call would return 401.
+  if (urlOk) {
+    const serverUrl = (process.env.SUPABASE_URL || '').trim();
+    if (isHttpUrl(serverUrl)) {
+      try {
+        const same = new URL(serverUrl).hostname === new URL(rawUrl).hostname;
+        report(
+          'Client and server use the same Supabase project',
+          same,
+          same ? 'yes' : 'they point at different projects - sign-in succeeds but every API call returns 401',
+        );
+      } catch {
+        /* the server URL was already reported above */
+      }
+    }
+  }
+
+  return { urlOk, keyOk, url: rawUrl, key: rawKey };
+}
+
+async function pingGoogleProvider(url, anonKey) {
+  const endpoint = `${url.replace(/\/+$/, '')}/auth/v1/settings`;
+
+  let response;
+  try {
+    response = await fetch(endpoint, {
+      headers: { apikey: anonKey, authorization: `Bearer ${anonKey}` },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (error) {
+    const code = error?.cause?.code || error?.cause?.message || error?.message || String(error);
+    return report(
+      'Google provider',
+      false,
+      `could not read auth settings (${brief(code)}) - check VITE_SUPABASE_URL and your connection`,
+    );
+  }
+
+  if (!response.ok) {
+    return report(
+      'Google provider',
+      false,
+      `could not read auth settings (HTTP ${response.status}) - check VITE_SUPABASE_ANON_KEY`,
+    );
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    return report('Google provider', false, 'auth settings response was not JSON');
+  }
+
+  const enabled = data?.external?.google === true;
+  return report(
+    'Google provider',
+    enabled,
+    enabled
+      ? 'enabled in Supabase'
+      : 'disabled - Supabase -> Authentication -> Sign In / Providers -> Google: enable it and add your Client ID + Secret',
+  );
+}
+
 async function main() {
   console.log('\nOopsie environment check');
-  console.log(`env file: ${envPath}`);
-  console.log(`          ${envExists ? 'found' : 'NOT FOUND — copy server/.env.example to server/.env'}`);
+  console.log(`server env: ${envPath}`);
+  console.log(`            ${envExists ? 'found' : 'NOT FOUND - copy server/.env.example to server/.env'}`);
+  console.log(`client env: ${clientEnvPath}`);
+  console.log(`            ${clientEnvExists ? 'found' : 'NOT FOUND - copy client/.env.example to client/.env'}`);
 
-  console.log('\n1) Required variables');
+  console.log('\n1) Server variables');
   const supabaseUrlOk = checkVariable('SUPABASE_URL', { url: true });
   const serviceKeyOk = checkVariable('SUPABASE_SERVICE_ROLE_KEY', { secret: true, minLength: 20 });
   const llmUrlOk = checkVariable('LLM_API_URL', { url: true });
   const llmKeyOk = checkVariable('LLM_API_KEY', { secret: true, minLength: 10 });
   const modelOk = checkVariable('LLM_MODEL');
 
-  console.log('\n2) Supabase');
+  console.log('\n2) Client variables (Google sign-in)');
+  const client = checkClientEnv();
+
+  console.log('\n3) Supabase database');
   if (supabaseUrlOk && serviceKeyOk) {
     await pingSupabase(
       (process.env.SUPABASE_URL || '').trim(),
@@ -294,7 +489,14 @@ async function main() {
     skip('Supabase connection', 'fix the failing Supabase variable(s) above first');
   }
 
-  console.log('\n3) LLM');
+  console.log('\n4) Google sign-in');
+  if (client.urlOk && client.keyOk) {
+    await pingGoogleProvider(client.url, client.key);
+  } else {
+    skip('Google provider', 'fix the failing client variable(s) above first');
+  }
+
+  console.log('\n5) LLM');
   if (llmUrlOk && llmKeyOk && modelOk) {
     await pingLlm(
       (process.env.LLM_API_URL || '').trim(),
