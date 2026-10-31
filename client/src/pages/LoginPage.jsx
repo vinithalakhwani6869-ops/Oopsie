@@ -2,24 +2,20 @@ import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, Mail } from 'lucide-react';
 import { supabase } from '../lib/supabase.js';
+import { friendlyAuthError } from '../lib/authErrors.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AuthShell } from '../components/AuthShell.jsx';
 import { Button, ErrorBanner } from '../components/ui.jsx';
-
-export function friendlyAuthError(message = '') {
-  if (/invalid login credentials/i.test(message)) return 'Email or password is incorrect. Try again.';
-  if (/email not confirmed/i.test(message)) return 'Confirm your email first — check your inbox for the link.';
-  if (/already registered|already exists/i.test(message)) return 'That email already has an account. Sign in instead.';
-  if (/password should be at least/i.test(message)) return 'Use a password with at least 8 characters.';
-  if (/rate limit/i.test(message)) return 'Too many attempts. Wait a minute and try again.';
-  return message || 'Something went wrong. Please try again.';
-}
 
 export function GoogleButton({ label = 'Continue with Google' }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleGoogle = async () => {
+    if (!supabase) {
+      setError('Supabase is not configured. Fill in client/.env and restart the dev server.');
+      return;
+    }
     setLoading(true);
     setError(null);
     const { error: oauthError } = await supabase.auth.signInWithOAuth({

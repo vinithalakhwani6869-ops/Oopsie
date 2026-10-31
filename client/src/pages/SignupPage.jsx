@@ -5,7 +5,8 @@ import { supabase } from '../lib/supabase.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { AuthShell } from '../components/AuthShell.jsx';
 import { Button, ErrorBanner } from '../components/ui.jsx';
-import { AuthDivider, friendlyAuthError, GoogleButton } from './LoginPage.jsx';
+import { friendlyAuthError } from '../lib/authErrors.js';
+import { AuthDivider, GoogleButton } from './LoginPage.jsx';
 
 export function SignupPage() {
   const { session } = useAuth();

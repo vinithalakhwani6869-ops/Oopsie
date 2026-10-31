@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
-import { isSupabaseConfigured } from './lib/supabase.js';
+import { isSupabaseConfigured, supabaseConfigIssue } from './lib/supabase.js';
 import { Layout } from './components/Layout.jsx';
 import { ProtectedRoute } from './components/ProtectedRoute.jsx';
 import { buttonClasses, Card } from './components/ui.jsx';
@@ -26,7 +26,7 @@ function ScrollToTop() {
   return null;
 }
 
-function ConfigNotice() {
+function ConfigNotice({ issue }) {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <Card className="max-w-2xl p-6 sm:p-8">
@@ -36,11 +36,18 @@ function ConfigNotice() {
           </span>
           <div>
             <h1 className="font-display text-2xl font-semibold">Almost there</h1>
-            <p className="text-sm text-ink-mute">The client needs Supabase credentials.</p>
+            <p className="text-sm text-ink-mute">The client needs valid Supabase credentials.</p>
           </div>
         </div>
 
         <div className="space-y-4 text-sm leading-6 text-ink-soft">
+          {issue && (
+            <div className="rounded-2xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-700">
+              <p className="font-semibold">Why sign-in can't work yet</p>
+              <p className="mt-1">{issue}</p>
+            </div>
+          )}
+
           <p>
             Create <code className="rounded bg-ink/5 px-1.5 py-0.5">client/.env</code> from{' '}
             <code className="rounded bg-ink/5 px-1.5 py-0.5">client/.env.example</code> and set:
@@ -48,13 +55,20 @@ function ConfigNotice() {
           <pre className="overflow-x-auto rounded-2xl bg-ink p-4 text-xs text-cream">
 {`VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_API_URL=http://localhost:8787/api`}
+VITE_API_URL=`}
           </pre>
+          <p>
+            Use the <strong>anon / publishable</strong> key from Project Settings → API, never the service role key. Leave{' '}
+            <code className="rounded bg-ink/5 px-1.5 py-0.5">VITE_API_URL</code> empty for the Vite proxy.
+          </p>
           <p>
             Then restart <code className="rounded bg-ink/5 px-1.5 py-0.5">npm run dev</code>. The server also needs its own{' '}
             <code className="rounded bg-ink/5 px-1.5 py-0.5">server/.env</code>.
           </p>
-          <p className="text-xs text-ink-mute">The full setup guide is in README.md.</p>
+          <p className="text-xs text-ink-mute">
+            Run <code className="rounded bg-ink/5 px-1.5 py-0.5">npm run check</code> to validate both env files. The full
+            setup guide is in README.md.
+          </p>
         </div>
       </Card>
     </div>
@@ -78,7 +92,7 @@ function NotFoundPage() {
 }
 
 export default function App() {
-  if (!isSupabaseConfigured) return <ConfigNotice />;
+  if (!isSupabaseConfigured) return <ConfigNotice issue={supabaseConfigIssue} />;
 
   return (
     <AuthProvider>

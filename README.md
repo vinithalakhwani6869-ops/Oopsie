@@ -350,37 +350,6 @@ Server-specific commands also work via `npm --prefix server run <script>`: `dev`
 
 ---
 
-## Troubleshooting
-
-**`npm error Missing script: "start"`.** There is no root `start` script. Use `npm run dev` (or `npm --prefix server start` for the API alone).
-
-**"The client needs Supabase credentials."** `client/.env` is missing or not loaded. Recreate it from `.env.example` and restart Vite.
-
-**"Could not reach the Oopsie server. Is it running on port 8787?"** Start both with `npm run dev`, or check that `VITE_API_URL` points at the API. If you open the production build directly, set an absolute API URL.
-
-**`npm run check` fails on Supabase with "Could not find the table".** Run `supabase/setup.sql` in the Supabase SQL editor. The checker points at this explicitly.
-
-**`npm run check` says the key was rejected.** Confirm `LLM_API_KEY` and that `LLM_API_URL` matches the provider. A Groq key (`gsk_...`) needs the Groq URL; an OpenAI key (`sk-...`) needs the OpenAI URL. The checker calls out this mismatch.
-
-**`npm run check` says "still set to the example placeholder".** You copied `.env.example` but did not replace that value.
-
-**401 / signed out immediately.** The Supabase session expired or `SUPABASE_URL` / anon key mismatch. Sign in again. Confirm the server's `SUPABASE_URL` points at the same project.
-
-**Signup works but no profile row.** Re-run `supabase/setup.sql` so the `handle_new_user` trigger exists. The API also creates a missing profile lazily on `GET /me`.
-
-**Google sign-in returns to the wrong page.** Add `http://localhost:5173/auth/callback` to Supabase redirect URLs and set the Site URL to `http://localhost:5173`.
-
-**Empty topics.** Run `npm run seed -- --fallback-only` for a question per topic, then `npm run seed` to generate more.
-
-**LLM errors / invalid JSON.** Check `LLM_API_URL`, key, and model name. If your provider rejects JSON mode, set `LLM_DISABLE_JSON_MODE=true`. Hints and MCQ/numeric grading fall back when the provider is unavailable; short-answer grading needs the LLM.
-
-**Points aren't increasing.** You may have hit the daily cap, already earned points for that question, used all three hints (0 points), or the session is self-study. The result panel explains which case applied.
-
-**Seed says "No topics found".** Run `supabase/setup.sql` first.
-
-**`EADDRINUSE` on 8787 or 5173.** Another process owns the port. Stop it, or change `PORT` / run Vite with `--port`.
-
----
 
 ## Design notes / limits
 
